@@ -53,7 +53,10 @@ void traversePins() {
     digitalWrite(X_PINS[x], HIGH);
 
     uint8_t state = *yState;
-    state |= (analogRead(A6) & 0x80);
+    if (analogRead(A6) > 64) {
+      state |= 0x80;
+    }
+
     if (state != 0) {
       // Serial.println(state);
       showPosition(x, state);
