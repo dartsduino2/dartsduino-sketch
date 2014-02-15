@@ -11,11 +11,11 @@ volatile uint8_t *yState;
 const unsigned long ANTI_CHATTERING = 200; // 200ms
 
 const char TABLE_DEC2HEX[] = {
-  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' 
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
 };
 
 
-void setup() {                
+void setup() {
   Serial.begin(9600);
 
   for (int8_t x = X_PINS_LENGTH - 1; x >= 0; x--) {
@@ -29,7 +29,7 @@ void setup() {
   cbi(ADCSRA, ADPS2);
   sbi(ADCSRA, ADPS1);
   cbi(ADCSRA, ADPS0);
-#endif  
+#endif
 
   checkPerformance();
 }
@@ -53,12 +53,15 @@ void traversePins() {
     digitalWrite(X_PINS[x], HIGH);
 
     uint8_t state = *yState;
-    state |= (analogRead(A6) & 0x80);
+    if (analogRead(A6) > 64) {
+      state |= 0x80;
+    }
+
     if (state != 0) {
       // Serial.println(state);
       showPosition(x, state);
     }
-    
+
     digitalWrite(X_PINS[x], LOW);
   }
 }
@@ -91,13 +94,14 @@ void showPosition(uint8_t x, uint8_t state) {
     y = 255;
     break;
   }
-  
+
   static unsigned long prevTime = 0;
   if (y != 255) {
     unsigned long time = millis();
     if (time - prevTime > ANTI_CHATTERING) {
-      Serial.print(TABLE_DEC2HEX[x]);
-      Serial.println(TABLE_DEC2HEX[y]);  
+//      Serial.print(TABLE_DEC2HEX[x]);
+//      Serial.println(TABLE_DEC2HEX[y]);
+      Serial.write(x * 16 + y);
     }
     prevTime = time;
   }
