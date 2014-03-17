@@ -50,13 +50,14 @@ void setupPorts() {
 }
 
 void checkPerformance() {
-  unsigned long time = millis();
+  unsigned long startTime = millis();
 
   for (int i = 0; i < 1000; i++) {
     traversePins();
   }
 
-  Serial.println(millis() - time);
+  unsigned long elapsedTime = millis() - startTime;
+  Serial.println(elapsedTime);
 }
 
 void loop() {
@@ -64,10 +65,12 @@ void loop() {
 }
 
 void traversePins() {
+  uint8_t state;
+
   for (int8_t x = X_PINS_LENGTH - 1; x >= 0; x--) {
     digitalWrite(X_PINS[x], HIGH);
 
-    uint8_t state = getState();
+    state = getState();
     if (state != 0) {
       // Serial.println(state);
       showPosition(x, state);
