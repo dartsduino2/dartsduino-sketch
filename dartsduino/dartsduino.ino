@@ -2,12 +2,22 @@
 #include "wiring_private.h"
 
 
+#define Type1
+
+#if defined(Type0)
 const uint8_t X_PINS[] = {
   2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 };
+#else
+const uint8_t X_PINS[] = {
+  2, 3, 4, 5, 6, 7, 8, 9
+};
+#endif
 const uint8_t X_PINS_LENGTH = sizeof(X_PINS) / sizeof(X_PINS[0]);
 
 volatile uint8_t *yState;
+volatile uint8_t *y2State;
+
 const unsigned long ANTI_CHATTERING = 200; // 200ms
 
 const char TABLE_DEC2HEX[] = {
@@ -24,6 +34,7 @@ void setup() {
   }
 
   yState = portInputRegister(digitalPinToPort(A0));
+  y2State = portInputRegister(digitalPinToPort(11));
 
 #if defined(ADCSRA)
   cbi(ADCSRA, ADPS2);
@@ -53,9 +64,13 @@ void traversePins() {
     digitalWrite(X_PINS[x], HIGH);
 
     uint8_t state = *yState;
+#if defined(Type0)
     if (analogRead(A6) > 64) {
       state |= 0x80;
     }
+#else
+    state |= (((*y2State) & 24) << 3);
+#endif
 
     if (state != 0) {
       // Serial.println(state);
@@ -87,8 +102,11 @@ void showPosition(uint8_t x, uint8_t state) {
   case 32:
     y = 5;
     break;
-  case 128:
+  case 64:
     y = 6;
+    break;
+  case 128:
+    y = 7;
     break;
   default:
     y = 255;
