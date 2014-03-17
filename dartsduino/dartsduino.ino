@@ -1,14 +1,22 @@
 
 #include "wiring_private.h"
 
+// #define BoardType0
+#define BoardType1
 
 const uint8_t X_PINS[] = {
+#ifdef BoardType0
   2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+#else
+  2, 3, 4, 5, 6, 7, 8, 9
+#endif
 };
 const uint8_t X_PINS_LENGTH = sizeof(X_PINS) / sizeof(X_PINS[0]);
 
-volatile uint8_t *yState;
-const unsigned long ANTI_CHATTERING = 200; // 200ms
+volatile uint8_t *stateRegister;
+volatile uint8_t *stateRegister2;
+
+const unsigned long ANTI_CHATTERING = 200; // [ms]
 
 const char TABLE_DEC2HEX[] = {
   '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
@@ -23,15 +31,22 @@ void setup() {
     digitalWrite(X_PINS[x], LOW);
   }
 
-  yState = portInputRegister(digitalPinToPort(A0));
+  setupPorts();
 
-#if defined(ADCSRA)
+  checkPerformance();
+}
+
+void setupPorts() {
+#ifdef BoardType0
+  stateRegister  = portInputRegister(digitalPinToPort(A0));
+#else
+  stateRegister  = portInputRegister(digitalPinToPort(A0));
+  stateRegister2 = portInputRegister(digitalPinToPort(11));
+
   cbi(ADCSRA, ADPS2);
   sbi(ADCSRA, ADPS1);
   cbi(ADCSRA, ADPS0);
 #endif
-
-  checkPerformance();
 }
 
 void checkPerformance() {
@@ -52,11 +67,7 @@ void traversePins() {
   for (int8_t x = X_PINS_LENGTH - 1; x >= 0; x--) {
     digitalWrite(X_PINS[x], HIGH);
 
-    uint8_t state = *yState;
-    if (analogRead(A6) > 64) {
-      state |= 0x80;
-    }
-
+    uint8_t state = getState();
     if (state != 0) {
       // Serial.println(state);
       showPosition(x, state);
@@ -64,6 +75,14 @@ void traversePins() {
 
     digitalWrite(X_PINS[x], LOW);
   }
+}
+
+inline uint8_t getState() {
+#if defined(BoardType0)
+  return *stateRegister | ((analogRead(A6) > 64) ? 0x80 : 0);
+#else
+  return *stateRegister | (((*stateRegister2) & 24) << 3);
+#endif
 }
 
 void showPosition(uint8_t x, uint8_t state) {
@@ -87,8 +106,11 @@ void showPosition(uint8_t x, uint8_t state) {
   case 32:
     y = 5;
     break;
-  case 128:
+  case 64:
     y = 6;
+    break;
+  case 128:
+    y = 7;
     break;
   default:
     y = 255;
