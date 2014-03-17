@@ -88,33 +88,15 @@ inline uint8_t getState() {
 void showPosition(uint8_t x, uint8_t state) {
   uint8_t y;
   switch (state) {
-  case 1:
-    y = 0;
-    break;
-  case 2:
-    y = 1;
-    break;
-  case 4:
-    y = 2;
-    break;
-  case 8:
-    y = 3;
-    break;
-  case 16:
-    y = 4;
-    break;
-  case 32:
-    y = 5;
-    break;
-  case 64:
-    y = 6;
-    break;
-  case 128:
-    y = 7;
-    break;
-  default:
-    y = 255;
-    break;
+  case 1:   y = 0;   break;
+  case 2:   y = 1;   break;
+  case 4:   y = 2;   break;
+  case 8:   y = 3;   break;
+  case 16:  y = 4;   break;
+  case 32:  y = 5;   break;
+  case 64:  y = 6;   break;
+  case 128: y = 7;   break;
+  default:  y = 255; break;
   }
 
   static unsigned long prevTime = 0;
