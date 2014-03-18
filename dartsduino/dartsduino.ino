@@ -6,15 +6,6 @@
 
 // #define DEBUG_MODE
 
-const uint8_t OUTPUT_PINS[] = {
-#ifdef BoardType0
-  2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
-#else
-  2, 3, 4, 5, 6, 7, 8, 9
-#endif
-};
-const uint8_t OUTPUT_PINS_LENGTH = sizeof(OUTPUT_PINS) / sizeof(OUTPUT_PINS[0]);
-
 volatile uint8_t *inputRegister;
 volatile uint8_t *inputRegister2;
 
@@ -24,6 +15,42 @@ const char TABLE_DEC2HEX[] = {
   '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
 };
 
+/**
+ * hardware dependent code
+ */
+
+const uint8_t OUTPUT_PINS[] = {
+#ifdef BoardType0
+  2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+#else
+  2, 3, 4, 5, 6, 7, 8, 9
+#endif
+};
+const uint8_t OUTPUT_PINS_LENGTH = sizeof(OUTPUT_PINS) / sizeof(OUTPUT_PINS[0]);
+
+void setupPorts() {
+  inputRegister  = portInputRegister(digitalPinToPort(A0));
+
+#ifdef BoardType1
+  inputRegister2 = portInputRegister(digitalPinToPort(11));
+
+  cbi(ADCSRA, ADPS2);
+  sbi(ADCSRA, ADPS1);
+  cbi(ADCSRA, ADPS0);
+#endif
+}
+
+inline uint8_t getInputState() {
+#if defined(BoardType0)
+  return *inputRegister | ((analogRead(A6) > 64) ? 0x80 : 0);
+#else
+  return *inputRegister | (((*inputRegister2) & 24) << 3);
+#endif
+}
+
+/**
+ * hardware independent code
+ */
 
 void setup() {
   Serial.begin(9600);
@@ -37,18 +64,6 @@ void setup() {
 
 #ifdef DEBUG_MODE
   checkPerformance();
-#endif
-}
-
-void setupPorts() {
-  inputRegister  = portInputRegister(digitalPinToPort(A0));
-
-#ifdef BoardType1
-  inputRegister2 = portInputRegister(digitalPinToPort(11));
-
-  cbi(ADCSRA, ADPS2);
-  sbi(ADCSRA, ADPS1);
-  cbi(ADCSRA, ADPS0);
 #endif
 }
 
@@ -81,14 +96,6 @@ void traversePins() {
 
     digitalWrite(OUTPUT_PINS[i], LOW);
   }
-}
-
-inline uint8_t getInputState() {
-#if defined(BoardType0)
-  return *inputRegister | ((analogRead(A6) > 64) ? 0x80 : 0);
-#else
-  return *inputRegister | (((*inputRegister2) & 24) << 3);
-#endif
 }
 
 void showHitPosition(uint8_t outputPinIndex, uint8_t inputState) {
