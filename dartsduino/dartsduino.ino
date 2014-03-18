@@ -4,44 +4,35 @@
 // #define BoardType0
 #define BoardType1
 
-const uint8_t X_PINS[] = {
+// #define DEBUG_MODE
+
+volatile uint8_t *inputRegister;
+volatile uint8_t *inputRegister2;
+
+const unsigned long ANTI_CHATTERING_TIME = 200; // [ms]
+
+const char TABLE_DEC2HEX[] = {
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+};
+
+/**
+ * hardware dependent code
+ */
+
+const uint8_t OUTPUT_PINS[] = {
 #ifdef BoardType0
   2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 #else
   2, 3, 4, 5, 6, 7, 8, 9
 #endif
 };
-const uint8_t X_PINS_LENGTH = sizeof(X_PINS) / sizeof(X_PINS[0]);
-
-volatile uint8_t *stateRegister;
-volatile uint8_t *stateRegister2;
-
-const unsigned long ANTI_CHATTERING = 200; // [ms]
-
-const char TABLE_DEC2HEX[] = {
-  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
-};
-
-
-void setup() {
-  Serial.begin(9600);
-
-  for (int8_t x = X_PINS_LENGTH - 1; x >= 0; x--) {
-    pinMode(X_PINS[x], OUTPUT);
-    digitalWrite(X_PINS[x], LOW);
-  }
-
-  setupPorts();
-
-  checkPerformance();
-}
+const uint8_t OUTPUT_PINS_LENGTH = sizeof(OUTPUT_PINS) / sizeof(OUTPUT_PINS[0]);
 
 void setupPorts() {
-#ifdef BoardType0
-  stateRegister  = portInputRegister(digitalPinToPort(A0));
-#else
-  stateRegister  = portInputRegister(digitalPinToPort(A0));
-  stateRegister2 = portInputRegister(digitalPinToPort(11));
+  inputRegister  = portInputRegister(digitalPinToPort(A0));
+
+#ifdef BoardType1
+  inputRegister2 = portInputRegister(digitalPinToPort(11));
 
   cbi(ADCSRA, ADPS2);
   sbi(ADCSRA, ADPS1);
@@ -49,82 +40,92 @@ void setupPorts() {
 #endif
 }
 
-void checkPerformance() {
-  unsigned long time = millis();
+inline uint8_t getInputState() {
+#if defined(BoardType0)
+  return *inputRegister | ((analogRead(A6) > 64) ? 0x80 : 0);
+#else
+  return *inputRegister | (((*inputRegister2) & 24) << 3);
+#endif
+}
 
+/**
+ * hardware independent code
+ */
+
+void setup() {
+  Serial.begin(9600);
+
+  for (int8_t i = OUTPUT_PINS_LENGTH - 1; i >= 0; i--) {
+    pinMode(OUTPUT_PINS[i], OUTPUT);
+    digitalWrite(OUTPUT_PINS[i], LOW);
+  }
+
+  setupPorts();
+
+#ifdef DEBUG_MODE
+  checkPerformance();
+#endif
+}
+
+#ifdef DEBUG_MODE
+void checkPerformance() {
+  unsigned long startTime = millis();
   for (int i = 0; i < 1000; i++) {
     traversePins();
   }
+  unsigned long elapsedTime = millis() - startTime;
 
-  Serial.println(millis() - time);
+  Serial.println(elapsedTime);
 }
+#endif
 
 void loop() {
   traversePins();
 }
 
 void traversePins() {
-  for (int8_t x = X_PINS_LENGTH - 1; x >= 0; x--) {
-    digitalWrite(X_PINS[x], HIGH);
+  uint8_t state;
 
-    uint8_t state = getState();
+  for (int8_t i = OUTPUT_PINS_LENGTH - 1; i >= 0; i--) {
+    digitalWrite(OUTPUT_PINS[i], HIGH);
+
+    state = getInputState();
     if (state != 0) {
-      // Serial.println(state);
-      showPosition(x, state);
+      showHitPosition(i, state);
     }
 
-    digitalWrite(X_PINS[x], LOW);
+    digitalWrite(OUTPUT_PINS[i], LOW);
   }
 }
 
-inline uint8_t getState() {
-#if defined(BoardType0)
-  return *stateRegister | ((analogRead(A6) > 64) ? 0x80 : 0);
-#else
-  return *stateRegister | (((*stateRegister2) & 24) << 3);
-#endif
-}
-
-void showPosition(uint8_t x, uint8_t state) {
-  uint8_t y;
-  switch (state) {
-  case 1:
-    y = 0;
-    break;
-  case 2:
-    y = 1;
-    break;
-  case 4:
-    y = 2;
-    break;
-  case 8:
-    y = 3;
-    break;
-  case 16:
-    y = 4;
-    break;
-  case 32:
-    y = 5;
-    break;
-  case 64:
-    y = 6;
-    break;
-  case 128:
-    y = 7;
-    break;
-  default:
-    y = 255;
-    break;
-  }
-
+void showHitPosition(uint8_t outputPinIndex, uint8_t inputState) {
   static unsigned long prevTime = 0;
-  if (y != 255) {
-    unsigned long time = millis();
-    if (time - prevTime > ANTI_CHATTERING) {
-//      Serial.print(TABLE_DEC2HEX[x]);
-//      Serial.println(TABLE_DEC2HEX[y]);
-      Serial.write(x * 16 + y);
-    }
-    prevTime = time;
+
+  unsigned long currTime = millis();
+  unsigned long elapsedTime = currTime - prevTime;
+  prevTime = currTime;
+
+  if (elapsedTime < ANTI_CHATTERING_TIME) {
+    return;
   }
+
+  uint8_t inputBit;
+  switch (inputState) {
+  case 1:   inputBit = 0; break;
+  case 2:   inputBit = 1; break;
+  case 4:   inputBit = 2; break;
+  case 8:   inputBit = 3; break;
+  case 16:  inputBit = 4; break;
+  case 32:  inputBit = 5; break;
+  case 64:  inputBit = 6; break;
+  case 128: inputBit = 7; break;
+  default:  return;
+  }
+
+#ifdef DEBUG_MODE
+  Serial.print(TABLE_DEC2HEX[outputPinIndex]);
+  Serial.println(TABLE_DEC2HEX[inputBit]);
+#else
+  Serial.write((outputPinIndex << 4) + inputBit);
+#endif
 }
