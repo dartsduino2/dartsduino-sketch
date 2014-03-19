@@ -55,7 +55,7 @@ inline uint8_t getInputState() {
 void setup() {
   Serial.begin(9600);
 
-  for (int8_t i = OUTPUT_PINS_LENGTH - 1; i >= 0; i--) {
+  for (int8_t i = 0; i < OUTPUT_PINS_LENGTH; i++) {
     pinMode(OUTPUT_PINS[i], OUTPUT);
     digitalWrite(OUTPUT_PINS[i], LOW);
   }
@@ -75,7 +75,8 @@ void checkPerformance() {
   }
   unsigned long elapsedTime = millis() - startTime;
 
-  Serial.println(elapsedTime);
+  Serial.print(elapsedTime);
+  Serial.println(" [ms]");
 }
 #endif
 
