@@ -1,8 +1,8 @@
 
 #include "wiring_private.h"
 
-// #define BoardType0
-#define BoardType1
+#define BoardType0
+// #define BoardType1
 
 // #define DEBUG_MODE
 
@@ -31,7 +31,13 @@ const uint8_t OUTPUT_PINS_LENGTH = sizeof(OUTPUT_PINS) / sizeof(OUTPUT_PINS[0]);
 void setupPorts() {
   inputRegister  = portInputRegister(digitalPinToPort(A0));
 
-#ifdef BoardType1
+#ifdef BoardType0
+  analogReference(DEFAULT);
+
+  cbi(ADCSRA, ADPS2);
+  sbi(ADCSRA, ADPS1);
+  cbi(ADCSRA, ADPS0);
+#else
   inputRegister2 = portInputRegister(digitalPinToPort(11));
 
   cbi(ADCSRA, ADPS2);
@@ -40,9 +46,19 @@ void setupPorts() {
 #endif
 }
 
+uint8_t customAnalogRead(uint8_t pin) {
+  ADMUX = (DEFAULT << 6) | (pin & 0x07);
+
+  sbi(ADCSRA, ADSC);
+
+  while (bit_is_set(ADCSRA, ADSC));
+
+  return (ADCH << 6);
+}
+
 inline uint8_t getInputState() {
-#if defined(BoardType0)
-  return *inputRegister | ((analogRead(A6) > 64) ? 0x80 : 0);
+#ifdef BoardType0
+  return (*inputRegister & 0x3f) | (customAnalogRead(6) & 0x80);
 #else
   return *inputRegister | (((*inputRegister2) & 24) << 3);
 #endif
